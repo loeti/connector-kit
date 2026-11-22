@@ -35,6 +35,9 @@ public struct Connector: Geometry3D {
             for opening in layout.hubOpenings {
                 opening
             }
+            if let hubSocket = layout.passThroughHubSocket {
+                hubSocket.negativeBody
+            }
             for channel in layout.stockChannels {
                 channel
             }

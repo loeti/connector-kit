@@ -11,18 +11,42 @@ the connector in 3D and download a 3MF file for your slicer. It runs entirely in
 
 ## Connectors
 
-A connector has a socket (arm) along any of the six axis directions. Turning arms on and off
-covers the common shapes:
+A connector has a socket (arm) along any of the six axis directions. Turning arms on and off,
+and choosing whether the stock passes through, gives the
+[target constructions](openspec/specs/target-constructions/spec.md):
 
-| Shape | Arms | Options |
+| Construction | Arms | Other parameters | Size |
+|---|---|---|---|
+| Reducing sleeve (adapter) | none | pass-through X, stock 13, outer size 22 | 22 × 22 × 22 |
+| Extension of two stocks | −Y, +Y | 2 screws per arm | 27 × 51 × 27 |
+| Tee joining three stocks | −X, +X, +Y | | 93 × 60 × 27 |
+| Tee joining a stock to a perpendicular stock | −X, +X, −Y | pass-through X, no gussets | 77 × 52 × 27 |
+| Corner with two stocks | +X, +Y | | 60 × 60 × 27 |
+| Boxed corner with two stocks | +X, +Y | gusset sides: both | 60 × 60 × 27 |
+| Corner with three stocks | +X, +Y, +Z | | 60 × 60 × 60 |
+
+Sizes are for 22 mm stock with the default parameters. Roof constructions follow later.
+
+## Cut lengths
+
+Plan a frame by its outer size, measured over the connectors. Each stock is then cut shorter by
+how far the stock ends from the connector's outer face: the hub size, 27 mm by default.
+
+For a box of 1000 × 600 × 500 mm with three-way corners, every stock loses 2 × 27 = 54 mm:
+
+| Edges | Count | Cut length |
 |---|---|---|
-| Three-way corner | +X, +Y, +Z | gussets on the back faces |
-| Elbow | +X, +Y | gussets on one or both faces |
-| Tee | +X, −X, +Y | optionally pass-through along X |
-| Straight coupler | −Y, +Y | stop lip in the middle, or pass-through for a plain sleeve |
-| Cross, five- and six-way | any | |
+| 1000 | 4 | 946 mm |
+| 600 | 4 | 546 mm |
+| 500 | 4 | 446 mm |
 
-### Parameters
+Where a dimension is measured to the center of a connector, such as a tee within a side, subtract
+half the hub (13.5 mm) at that end instead. An extension adds no length: its 1 mm stop lip is
+within the cutting tolerance, so two stocks of 1000 mm make 2000 mm. The customizer shows these
+values for the current parameters, and the rules are specified in
+[cut-lengths](openspec/specs/cut-lengths/spec.md).
+
+## Parameters
 
 | Parameter | Default | Description |
 |---|---|---|
@@ -43,24 +67,24 @@ covers the common shapes:
 
 ## Sizing rules
 
-The rules live in the `ConnectorKit` library and can be used for other parts too.
+Every dimension follows from a few rules, for example: the wall is
+`(outer size − stock − clearance) / 2` but never thinner than the minimum, so 22 mm stock in a
+27 mm socket gets a 2.4 mm wall (2.4 + 0.1 + 22 + 0.1 + 2.4 = 27).
 
-- **Wall thickness.** A socket is either sized by its outer size,
-  `wall = (outer − stock − clearance) / 2`, or by a fixed wall thickness. Either way the wall is
-  never thinner than the minimum; if the target would need a thinner wall, the socket grows.
-  For 22 mm stock in a 27 mm socket: 2.4 + 0.1 + 22 + 0.1 + 2.4 = 27.
-- **Clearance.** The clearance is Cadova's `tolerance`: the total play of a fit, both sides
-  combined.
-- **Countersinks.** A screw head is only countersunk if the wall is at least as thick as the
-  head is tall; otherwise the hole is a plain through hole.
-- **Screw placement.** Screws go on the first free face in the order top, back, right, front,
-  left, bottom. A face split by a centered gusset isn't free. A second screw goes on the
-  opposite face, and screws are spread evenly along the socket so they don't meet.
-- **Gussets.** Gussets are as thick as the socket wall and sit flush with a hub face: opposite
-  the arm on the third axis, at the bottom if there is none, or centered if there are arms in
-  both directions.
-- **Hub.** The hub is a cube as wide as a socket and stops the stock. If all arms lie on one
-  axis, the hub shrinks to a thin stop lip, or disappears if the stock passes through.
+The rules are specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) in
+[`openspec/specs`](openspec/specs), each with its reason and concrete scenarios:
+
+| Spec | Covers |
+|---|---|
+| [socket-sizing](openspec/specs/socket-sizing/spec.md) | Stock, clearance, wall thickness and its minimum |
+| [screws](openspec/specs/screws/spec.md) | Hole sizes, countersinks, which faces get screws, screws in the hub |
+| [connector-layout](openspec/specs/connector-layout/spec.md) | Arms, hub, stop lip, pass-through |
+| [gussets](openspec/specs/gussets/spec.md) | Quarter-disc gussets, their placement, edge walls |
+| [customizer](openspec/specs/customizer/spec.md) | The parametric model, its parameters and publishing |
+| [target-constructions](openspec/specs/target-constructions/spec.md) | The constructions the kit must produce |
+| [cut-lengths](openspec/specs/cut-lengths/spec.md) | Where the stock ends and how to work out cut lengths |
+
+Changes to the rules start as an OpenSpec change proposal in `openspec/changes`.
 
 ## Using the library
 
@@ -113,22 +137,6 @@ The customizer is published on GitHub Pages by the `Customizer` workflow on ever
 swift package generate-customizer --product Connectors
 python3 -m http.server --directory Customizer 8000
 ```
-
-## Reference designs
-
-`Models/` contains the original STEP files this kit was derived from. Apart from the ridge joint,
-each one is a combination of parameters:
-
-| File | Arms | Other parameters |
-|---|---|---|
-| `Verbinder 1-1.step` | −Y, +Y | Gussets off, 2 screws per arm |
-| `Verbinder 1-2.step` | −X, +X, −Y | Gussets off, pass-through X |
-| `Verbinder 2x2.step` | +X, +Y | Gusset sides: both |
-| `Verbinder 2x2x2xGelenk.step`, `Adapter Gelenk 22.step` | | Ridge joint, not implemented yet |
-
-The defaults reproduce the three-way corner, which has no STEP file of its own: arms +X, +Y, +Z
-with gussets. In the original designs the screw holes sit slightly off-center and are 3.4 mm;
-here they are centered and sized from the screw standard plus the clearance.
 
 ## License
 

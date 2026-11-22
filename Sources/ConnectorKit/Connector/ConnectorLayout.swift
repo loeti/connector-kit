@@ -55,6 +55,47 @@ public struct ConnectorLayout: Sendable {
         }
     }
 
+    // MARK: - Cut lengths
+
+    /// Stock is cut to whole millimetres at best, so smaller deductions count as zero.
+    public static let cuttingTolerance = 1.0
+
+    /// Distance from the connector's center to the end of the stock in an arm: half the hub
+    /// (or half the stop lip). `nil` if the stock passes through along the arm's axis.
+    public func stopDistance(for arm: Arm) -> Double? {
+        guard configuration.passThroughAxis != arm.direction.axis else { return nil }
+        return hubLength(along: arm.direction.axis) / 2
+    }
+
+    /// Distance from the connector's outer face opposite an arm to the end of the stock in that
+    /// arm: the whole hub. `nil` if the opposite direction has an arm (there is no outer face) or
+    /// the stock passes through.
+    public func outerOffset(for arm: Arm) -> Double? {
+        let opposite = arm.direction.opposite
+        guard let stop = stopDistance(for: arm),
+              !configuration.arms.contains(where: { $0.direction == opposite })
+        else { return nil }
+        return stop + hubLength(along: arm.direction.axis) / 2
+    }
+
+    /// Where a frame dimension is measured to at a connector.
+    public enum Reference: Sendable {
+        /// Over the outside of the connector.
+        case outerFace
+        /// To the connector's center, such as for a tee within a side.
+        case center
+    }
+
+    /// Length to subtract from a frame dimension at this end of a stock. Rule: deductions below
+    /// the cutting tolerance count as zero, which makes the stop lip of an extension free.
+    public func cutDeduction(for arm: Arm, measuredTo reference: Reference) -> Double? {
+        let deduction = switch reference {
+        case .outerFace: outerOffset(for: arm)
+        case .center: stopDistance(for: arm)
+        }
+        return deduction.map { $0 < Self.cuttingTolerance ? 0 : $0 }
+    }
+
     // MARK: - Sockets and screws
 
     public var sockets: [Socket] {
@@ -83,18 +124,43 @@ public struct ConnectorLayout: Sendable {
         screwSides(for: arm).first
     }
 
+    public func screwPlacements(for arm: Arm) -> [ScrewPlacement] {
+        arm.screws ?? screwPlacements(on: screwSides(for: arm))
+    }
+
     /// Rule: screws alternate between the preferred face and the face opposite it (if that one is
     /// free too), spread evenly along the socket so that screws from opposite sides don't meet.
-    public func screwPlacements(for arm: Arm) -> [ScrewPlacement] {
-        if let screws = arm.screws { return screws }
+    func screwPlacements(on candidates: [DirectionalAxis<D3>]) -> [ScrewPlacement] {
         let count = configuration.screwsPerArm
-        let candidates = screwSides(for: arm)
         guard count > 0, let preferred = candidates.first else { return [] }
 
         let sides = candidates.contains(preferred.opposite) ? [preferred, preferred.opposite] : [preferred]
         return ScrewPlacement.evenPositions(count: count).enumerated().map { index, position in
             ScrewPlacement(side: sides[index % sides.count], position: position)
         }
+    }
+
+    /// The hub seen as a socket along the pass-through axis. Rule: when no arm lies on that axis,
+    /// nothing else holds the stock that runs through, so the hub gets screws of its own, on faces
+    /// that have no arm attached. This turns a connector without arms into a reducing sleeve.
+    public var passThroughHubSocket: Socket? {
+        guard let axis = configuration.passThroughAxis,
+              let hub,
+              !configuration.arms.contains(where: { $0.direction.axis == axis })
+        else { return nil }
+
+        let direction = DirectionalAxis<D3>(axis: axis, towards: .positive)
+        let armDirections = Set(configuration.arms.map(\.direction))
+        let freeSides = screwSides(for: Arm(direction)).filter { !armDirections.contains($0) }
+
+        return Socket(
+            dimensions: dimensions,
+            depth: hub.size[axis],
+            direction: direction,
+            start: -hub.size[axis] / 2,
+            screw: configuration.screw,
+            screwPlacements: screwPlacements(on: freeSides)
+        )
     }
 
     // MARK: - Gussets

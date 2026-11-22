@@ -1,0 +1,20 @@
+schema: spec-driven
+
+context: |
+  Open source project: write all artifacts in English.
+  All lengths are in millimetres. "Clearance" always means the total play of a fit
+  (both sides combined), stored as Cadova's `tolerance`.
+  Coordinates: the hub is centered at the origin, +Z is up. Arm directions are named
+  +X, −X, +Y, −Y, +Z, −Z.
+  The library (ConnectorKit) knows no materials and no presets; concrete values only
+  appear as customizer defaults and in tests.
+  The user sometimes provides STEP files to show a new design. They only illustrate the idea,
+  are not specifications, and are not kept in the repository.
+
+rules:
+  specs:
+    - Every rule states its reason, not only its effect.
+    - Scenarios use concrete numbers that can be checked by hand.
+  tasks:
+    - Every new or changed rule gets a test that fails without the change.
+    - Geometry changes are checked visually (render or section) before they are done.

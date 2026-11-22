@@ -7,7 +7,7 @@ struct ConnectorGeometryTests {
 
     @Test func `Three-way corner has the outer size of the reference design`() async throws {
         let bounds = try await ModelFileGenerator.evaluate(environment: environment) { evaluator in
-            await evaluator.bounds(of: Connector(threeWayCorner))
+            await evaluator.bounds(of: Connector(cornerWithThreeStocks))
         }
         let size = try #require(bounds?.size)
         // Hub 27 + socket 25 + gusset overhang 8 = 60
@@ -18,7 +18,7 @@ struct ConnectorGeometryTests {
 
     @Test func `Three-way corner has the expected volume and is a single piece`() async throws {
         let (volume, componentCount) = try await ModelFileGenerator.evaluate(environment: environment) { evaluator in
-            let connector = Connector(threeWayCorner)
+            let connector = Connector(cornerWithThreeStocks)
             return (await evaluator.measurements(of: connector).volume, await evaluator.components(of: connector).count)
         }
         // Calculated by hand:
@@ -32,17 +32,17 @@ struct ConnectorGeometryTests {
     }
 
     @Test func `Screw holes remove material`() async throws {
-        var withoutScrews = threeWayCorner
+        var withoutScrews = cornerWithThreeStocks
         withoutScrews.screw = nil
         let removed = try await ModelFileGenerator.evaluate(environment: environment) { [withoutScrews] evaluator in
             let full = await evaluator.measurements(of: Connector(withoutScrews)).volume
-            let drilled = await evaluator.measurements(of: Connector(threeWayCorner)).volume
+            let drilled = await evaluator.measurements(of: Connector(cornerWithThreeStocks)).volume
             return full - drilled
         }
         #expect(abs(removed - 3 * screwHoleVolume) < 5, "Removed \(removed), expected \(3 * screwHoleVolume)")
     }
 
-    @Test(arguments: [threeWayCorner, flatElbow, flatTee, sixWayCross, straightCoupler, passThroughTee, boxedElbow])
+    @Test(arguments: [cornerWithThreeStocks, cornerWithTwoStocks, teeJoiningThreeStocks, sixWayCross, extensionOfTwoStocks, teeJoiningPerpendicularStock, boxedCornerWithTwoStocks])
     func `Stock fits without overlapping`(_ configuration: ConnectorConfiguration) async throws {
         // Stock touching the hub or a stop lip gives a degenerate, zero-volume intersection,
         // so this compares volume rather than asking whether the intersection is empty.
@@ -58,7 +58,7 @@ struct ConnectorGeometryTests {
         // A slightly longer piece of stock, reaching into the hub, must intersect the hub
         let isEmpty = try await ModelFileGenerator.evaluate(environment: environment) { evaluator in
             await evaluator.isEmpty(
-                Connector(threeWayCorner).intersecting {
+                Connector(cornerWithThreeStocks).intersecting {
                     Box(x: 30, y: 22, z: 22)
                         .aligned(at: .centerY, .centerZ)
                         .translated(x: 13.5 - 0.5)
@@ -79,7 +79,7 @@ struct ConnectorGeometryTests {
     }
 
     @Test func `Straight coupler is a tube with a stop lip`() async throws {
-        let (size, volume) = try await sizeAndVolume(of: straightCoupler)
+        let (size, volume) = try await sizeAndVolume(of: extensionOfTwoStocks)
         // Two 25 mm sockets and the 1 mm lip
         #expect(abs(size.y - 51) < 0.01 && abs(size.x - 27) < 0.01 && abs(size.z - 27) < 0.01)
         let tube = socketWallArea * 51
@@ -89,7 +89,7 @@ struct ConnectorGeometryTests {
     }
 
     @Test func `Pass-through tee lets the stock run through the hub`() async throws {
-        let (size, volume) = try await sizeAndVolume(of: passThroughTee)
+        let (size, volume) = try await sizeAndVolume(of: teeJoiningPerpendicularStock)
         #expect(abs(size.x - 77) < 0.01 && abs(size.y - 52) < 0.01 && abs(size.z - 27) < 0.01)
         let hub = 27.0 * 27 * 27 - 27 * 22.2 * 22.2
         let expected = hub + 3 * socketWallArea * 25 - 3 * screwHoleVolume
@@ -97,12 +97,30 @@ struct ConnectorGeometryTests {
     }
 
     @Test func `Boxed elbow has gussets on both faces joined by edge walls`() async throws {
-        let (size, volume) = try await sizeAndVolume(of: boxedElbow)
+        let (size, volume) = try await sizeAndVolume(of: boxedCornerWithTwoStocks)
         #expect(abs(size.x - 60) < 0.01 && abs(size.y - 60) < 0.01 && abs(size.z - 27) < 0.01)
         let gusset = (Double.pi * 60 * 60 / 4 - (27 * 27 + 2 * 25 * 27)) * 2.4
         // 8 mm long walls between the gussets, beyond the socket ends
         let edgeWall = 2.4 * 8 * (27 - 2 * 2.4)
         let expected = 27.0 * 27 * 27 + 2 * socketWallArea * 25 + 2 * gusset + 2 * edgeWall - 2 * screwHoleVolume
         #expect(abs(volume - expected) / expected < 0.005, "Volume \(volume), expected \(expected)")
+    }
+
+    @Test func `Reducing sleeve without arms holds the stock with a screw in the hub`() async throws {
+        var withoutScrews = reducingSleeve
+        withoutScrews.screw = nil
+        let (size, full, drilled) = try await ModelFileGenerator.evaluate(environment: environment) { [withoutScrews] evaluator in
+            let size = await evaluator.bounds(of: Connector(reducingSleeve))?.size ?? .zero
+            let full = await evaluator.measurements(of: Connector(withoutScrews)).volume
+            let drilled = await evaluator.measurements(of: Connector(reducingSleeve)).volume
+            return (size, full, drilled)
+        }
+        #expect(abs(size.x - 22) < 0.01 && abs(size.y - 22) < 0.01 && abs(size.z - 22) < 0.01)
+
+        // 22 cube with a 13.2 square hole along X
+        #expect(abs(full - (22.0 * 22 * 22 - 22 * 13.2 * 13.2)) < 1, "Volume \(full)")
+        // Wall (22 − 13.2) / 2 = 4.4: 1.5 mm countersink, then 2.9 mm of 3.2 mm hole
+        let hole = Double.pi / 12 * 1.5 * (6.2 * 6.2 + 6.2 * 3.2 + 3.2 * 3.2) + Double.pi / 4 * 3.2 * 3.2 * 2.9
+        #expect(abs(full - drilled - hole) < 3, "Removed \(full - drilled), expected \(hole)")
     }
 }

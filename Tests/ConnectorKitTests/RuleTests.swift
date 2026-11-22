@@ -49,7 +49,7 @@ struct RuleTests {
     }
 
     @Test func `Screws go on top of horizontal arms and towards the back of vertical ones`() {
-        let layout = ConnectorLayout(configuration: threeWayCorner, clearance: 0.2)
+        let layout = ConnectorLayout(configuration: cornerWithThreeStocks, clearance: 0.2)
         #expect(layout.automaticScrewSide(for: Arm(.maxX)) == .maxZ)
         #expect(layout.automaticScrewSide(for: Arm(.maxY)) == .maxZ)
         #expect(layout.automaticScrewSide(for: Arm(.maxZ)) == .maxY)
@@ -67,19 +67,31 @@ struct RuleTests {
     }
 
     @Test func `Two screws per arm go on opposite faces, a third and two thirds along`() {
-        let layout = ConnectorLayout(configuration: straightCoupler, clearance: 0.2)
+        let layout = ConnectorLayout(configuration: extensionOfTwoStocks, clearance: 0.2)
         let placements = layout.screwPlacements(for: Arm(.maxY))
         #expect(placements.map(\.side) == [.maxZ, .minZ])
         #expect(placements.map(\.position) == [1.0 / 3, 2.0 / 3])
     }
 
     @Test func `A straight connector has a stop lip instead of a hub, unless the stock passes through`() {
-        let coupler = ConnectorLayout(configuration: straightCoupler, clearance: 0.2)
+        let coupler = ConnectorLayout(configuration: extensionOfTwoStocks, clearance: 0.2)
         #expect(coupler.hubLength(along: .y) == 1)
         #expect(coupler.hubLength(along: .x) == 27)
 
-        var sleeve = straightCoupler
+        var sleeve = extensionOfTwoStocks
         sleeve.passThroughAxis = .y
         #expect(ConnectorLayout(configuration: sleeve, clearance: 0.2).hub == nil)
+    }
+
+    @Test func `Hub screws avoid faces that have an arm`() {
+        // Stock passes through along X; the arm on +Z takes the preferred top face
+        var configuration = reducingSleeve
+        configuration.arms = [Arm(.maxZ)]
+        let layout = ConnectorLayout(configuration: configuration, clearance: 0.2)
+        #expect(layout.passThroughHubSocket?.screwPlacements.map(\.side) == [.maxY])
+
+        // With an arm on the pass-through axis, that arm holds the stock instead
+        configuration.arms = [Arm(.maxX)]
+        #expect(ConnectorLayout(configuration: configuration, clearance: 0.2).passThroughHubSocket == nil)
     }
 }

@@ -2,9 +2,15 @@ import Cadova
 import ConnectorKit
 import Helical
 
-/// A connector with every dimension and feature exposed as a customizer parameter.
-struct ParametricConnector: Geometry3D {
-    var body: any Geometry3D {
+/// Every customizer parameter of the connector model, read in one place so the model's
+/// description and its geometry use the same configuration.
+struct ConnectorParameters: Sendable {
+    let configuration: ConnectorConfiguration
+    let clearance: Double
+    let showsStock: Bool
+
+    /// Reads the parameters. Call this while a model is being built.
+    static func read() -> ConnectorParameters {
         @Parameter("Stock size", in: 5...100, step: 0.5, unit: "mm", description: "Width of the square stock that goes into the sockets")
         var stockSize = 22.0
 
@@ -30,17 +36,10 @@ struct ParametricConnector: Geometry3D {
         @Parameter("Show stock", description: "Show the inserted stock as reference. It isn't part of the printed model.")
         var showsStock = false
 
-        Connector(configuration)
-            .adding {
-                if showsStock {
-                    InsertedStock(configuration, length: 2 * socketDepth)
-                        .inBackground()
-                }
-            }
-            .withTolerance(clearance)
+        return ConnectorParameters(configuration: configuration, clearance: clearance, showsStock: showsStock)
     }
 
-    var wallRule: WallRule {
+    static var wallRule: WallRule {
         @Parameter("Wall sizing", description: "Size the sockets by their outer size, or by their wall thickness")
         var wallSizing = WallSizing.outerSize
 
@@ -60,7 +59,7 @@ struct ParametricConnector: Geometry3D {
         }
     }
 
-    var arms: [Arm] {
+    static var arms: [Arm] {
         @Parameter("Arm towards +X") var positiveX = true
         @Parameter("Arm towards −X") var negativeX = false
         @Parameter("Arm towards +Y") var positiveY = true
@@ -76,7 +75,7 @@ struct ParametricConnector: Geometry3D {
         return choices.filter(\.0).map { Arm($0.1) }
     }
 
-    var gussetStyle: GussetStyle {
+    static var gussetStyle: GussetStyle {
         @Parameter("Gussets", description: "Brace each pair of perpendicular arms with a quarter-disc plate")
         var hasGussets = true
 
@@ -91,17 +90,33 @@ struct ParametricConnector: Geometry3D {
         return .quarterDisc(overhang: overhang, sides: sides.value)
     }
 
-    var screwSize: ScrewSize {
+    static var screwSize: ScrewSize {
         @Parameter("Screws", description: "Countersunk screw that secures the stock in each socket")
         var screwSize = ScrewSize.m3
         return screwSize
     }
 
-    var screwsPerArm: Int {
+    static var screwsPerArm: Int {
         guard screwSize != .none else { return 0 }
         @Parameter("Screws per arm", in: 1...2, description: "A second screw goes on the opposite face, offset along the socket")
         var count = 1
         return count
+    }
+}
+
+/// The connector built from the customizer parameters, with the inserted stock as reference.
+struct ParametricConnector: Geometry3D {
+    let parameters: ConnectorParameters
+
+    var body: any Geometry3D {
+        Connector(parameters.configuration)
+            .adding {
+                if parameters.showsStock {
+                    InsertedStock(parameters.configuration, length: 2 * parameters.configuration.socketDepth)
+                        .inBackground()
+                }
+            }
+            .withTolerance(parameters.clearance)
     }
 }
 
