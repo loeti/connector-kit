@@ -12,7 +12,12 @@ public struct CutLengthReport: Sendable {
     public var text: String {
         var lines = ["Cut lengths, with frame dimensions measured over the connectors:"]
 
-        if let axis = layout.configuration.passThroughAxis {
+        if let ignored = layout.ignoredPassThroughAxis {
+            let name = Self.name(of: ignored)
+            lines.insert("Pass-through along \(name) is ignored: it needs arms in both directions along \(name), or no arms at all.", at: 0)
+        }
+
+        if let axis = layout.passThroughAxis {
             lines.append("The stock along \(Self.name(of: axis)) runs through without a stop.")
         }
 

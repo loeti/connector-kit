@@ -91,15 +91,13 @@ struct RuleTests {
         #expect(ConnectorLayout(configuration: sleeve, clearance: 0.2).hub == nil)
     }
 
-    @Test func `Hub screws avoid faces that have an arm`() {
-        // Stock passes through along X; the arm on +Z takes the preferred top face
-        var configuration = reducingSleeve
-        configuration.arms = [Arm(.maxZ)]
-        let layout = ConnectorLayout(configuration: configuration, clearance: 0.2)
-        #expect(layout.passThroughHubSocket?.screwPlacements.map(\.side) == [.maxY])
+    @Test func `Only a reducing sleeve gets screws in the hub`() {
+        let sleeve = ConnectorLayout(configuration: reducingSleeve, clearance: 0.2)
+        #expect(sleeve.passThroughHubSocket?.screwPlacements.map(\.side) == [.maxZ])
 
-        // With an arm on the pass-through axis, that arm holds the stock instead
-        configuration.arms = [Arm(.maxX)]
-        #expect(ConnectorLayout(configuration: configuration, clearance: 0.2).passThroughHubSocket == nil)
+        // A through tee is held by the screws of its arms along X
+        let tee = ConnectorLayout(configuration: teeJoiningPerpendicularStock, clearance: 0.2)
+        #expect(tee.passThroughHubSocket == nil)
+        #expect(tee.screwPlacements(for: Arm(.maxX)).map(\.side) == [.maxZ])
     }
 }

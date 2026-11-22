@@ -43,4 +43,11 @@ struct CutLengthReportTests {
         #expect(CutLengthReport.format(13.5) == "13.5")
         #expect(CutLengthReport.format(13.8000001) == "13.8")
     }
+
+    @Test func `An ignored pass-through is explained`() {
+        let text = report(referenceConfiguration([.maxZ], passThroughAxis: .x))
+        #expect(text.hasPrefix("Pass-through along X is ignored: it needs arms in both directions along X, or no arms at all."))
+        #expect(!text.contains("runs through"))
+        #expect(!report(teeJoiningPerpendicularStock).contains("ignored"))
+    }
 }

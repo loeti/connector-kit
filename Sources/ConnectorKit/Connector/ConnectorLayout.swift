@@ -15,6 +15,22 @@ public struct ConnectorLayout: Sendable {
         self.dimensions = configuration.socket.dimensions(clearance: clearance)
     }
 
+    // MARK: - Pass-through
+
+    /// The pass-through axis that applies. Rule: stock only runs through along an axis with arms in
+    /// both directions, so sockets guide it on both sides, or along any axis of a connector without
+    /// arms (a reducing sleeve). Any other configured axis is ignored.
+    public var passThroughAxis: Axis3D? {
+        guard let axis = configuration.passThroughAxis else { return nil }
+        let directions = Set(configuration.arms.filter { $0.direction.axis == axis }.map(\.direction.axisDirection))
+        return configuration.arms.isEmpty || directions.count == 2 ? axis : nil
+    }
+
+    /// The configured pass-through axis if it was ignored, so the user can be told why.
+    public var ignoredPassThroughAxis: Axis3D? {
+        passThroughAxis == nil ? configuration.passThroughAxis : nil
+    }
+
     // MARK: - Hub
 
     /// The axis shared by all arms, if they all lie on one axis.
@@ -27,7 +43,7 @@ public struct ConnectorLayout: Sendable {
     /// or nothing at all if the stock passes through. Otherwise the hub is a cube as wide as a socket.
     public func hubLength(along axis: Axis3D) -> Double {
         guard axis == straightAxis else { return dimensions.outerWidth }
-        return configuration.passThroughAxis == axis ? 0 : configuration.stopLip.thickness
+        return passThroughAxis == axis ? 0 : configuration.stopLip.thickness
     }
 
     public var hub: Hub? {
@@ -39,9 +55,9 @@ public struct ConnectorLayout: Sendable {
     /// opening of the stop lip in a straight connector.
     public var hubOpenings: [any Geometry3D] {
         let openings: [(axis: Axis3D, width: Double)] = [
-            configuration.passThroughAxis.map { ($0, dimensions.innerWidth) },
+            passThroughAxis.map { ($0, dimensions.innerWidth) },
             straightAxis.flatMap { axis in
-                configuration.passThroughAxis == axis
+                passThroughAxis == axis
                     ? nil
                     : (axis, dimensions.innerWidth - 2 * configuration.stopLip.protrusion)
             },
@@ -63,7 +79,7 @@ public struct ConnectorLayout: Sendable {
     /// Distance from the connector's center to the end of the stock in an arm: half the hub
     /// (or half the stop lip). `nil` if the stock passes through along the arm's axis.
     public func stopDistance(for arm: Arm) -> Double? {
-        guard configuration.passThroughAxis != arm.direction.axis else { return nil }
+        guard passThroughAxis != arm.direction.axis else { return nil }
         return hubLength(along: arm.direction.axis) / 2
     }
 
@@ -138,18 +154,12 @@ public struct ConnectorLayout: Sendable {
         }
     }
 
-    /// The hub seen as a socket along the pass-through axis. Rule: when no arm lies on that axis,
-    /// nothing else holds the stock that runs through, so the hub gets screws of its own, on faces
-    /// that have no arm attached. This turns a connector without arms into a reducing sleeve.
+    /// The hub seen as a socket along the pass-through axis. Rule: in a connector without arms
+    /// (a reducing sleeve) nothing else holds the stock that runs through, so the hub gets screws
+    /// of its own. With arms, a valid pass-through has arms on both sides that hold it.
     public var passThroughHubSocket: Socket? {
-        guard let axis = configuration.passThroughAxis,
-              let hub,
-              !configuration.arms.contains(where: { $0.direction.axis == axis })
-        else { return nil }
-
+        guard configuration.arms.isEmpty, let axis = passThroughAxis, let hub else { return nil }
         let direction = DirectionalAxis<D3>(axis: axis, towards: .positive)
-        let armDirections = Set(configuration.arms.map(\.direction))
-        let freeSides = screwSides(for: Arm(direction)).filter { !armDirections.contains($0) }
 
         return Socket(
             dimensions: dimensions,
@@ -157,7 +167,7 @@ public struct ConnectorLayout: Sendable {
             direction: direction,
             start: -hub.size[axis] / 2,
             screw: configuration.screw,
-            screwPlacements: screwPlacements(on: freeSides)
+            screwPlacements: screwPlacements(on: screwSides(for: Arm(direction)))
         )
     }
 
@@ -188,7 +198,7 @@ public struct ConnectorLayout: Sendable {
                 axis == arm.direction.axis ? arm.direction.span(from: start, length: length) : -half...half
             }.solid
         }
-        let throughPiece = configuration.passThroughAxis.map { passAxis in
+        let throughPiece = passThroughAxis.map { passAxis in
             let hubHalf = hubLength(along: passAxis) / 2
             return BoundingBox3D { $0 == passAxis ? -hubHalf...hubHalf : -half...half }.solid
         }

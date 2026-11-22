@@ -56,7 +56,7 @@ values for the current parameters, and the rules are specified in
 | Outer size / Wall thickness | 27 mm / 2.4 mm | The value for the chosen wall sizing |
 | Minimum wall thickness | 1.2 mm | The wall is never thinner than this |
 | Arm towards ±X/±Y/±Z | +X, +Y, +Z | Which arms the connector has |
-| Pass-through | None | Axis along which the stock runs straight through |
+| Pass-through | None | Axis along which the stock runs straight through; only applies with arms in both directions along it, or without any arms (reducing sleeve) |
 | Gussets | On | Quarter-disc plates between perpendicular arms |
 | Gusset overhang | 8 mm | How far the gusset's arc bulges into the corner between the arms; gussets end at the socket ends |
 | Screws | M3 | Countersunk screw (M2–M6) or none |
