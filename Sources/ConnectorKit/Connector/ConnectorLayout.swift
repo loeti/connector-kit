@@ -111,13 +111,11 @@ public struct ConnectorLayout: Sendable {
         }
     }
 
-    /// Faces of an arm that can take a screw, in order of preference. Rule: a face qualifies if it
-    /// runs along the arm and isn't split by a centered gusset. A gusset that sits flush with a hub
-    /// face only touches the edge of a socket face, so it leaves the middle free for the screw.
+    /// Faces of an arm that can take a screw, in order of preference: every face along the arm.
+    /// Gussets don't block a face, because they sit flush with a hub face and only touch the edge
+    /// of a socket face.
     public func screwSides(for arm: Arm) -> [DirectionalAxis<D3>] {
-        Self.screwSidePreference.filter { side in
-            side.axis != arm.direction.axis && !hasCenteredGusset(between: arm.direction, and: side)
-        }
+        Self.screwSidePreference.filter { $0.axis != arm.direction.axis }
     }
 
     public func automaticScrewSide(for arm: Arm) -> DirectionalAxis<D3>? {
@@ -172,51 +170,13 @@ public struct ConnectorLayout: Sendable {
                 first: placement.first,
                 second: placement.second,
                 radius: placement.radius,
+                reach: placement.reach,
                 thickness: dimensions.wallThickness
             )
         }
     }
 
-    /// Walls that join gussets on both faces along their straight edges, beyond the sockets.
-    public var gussetEdgeWalls: [GussetEdgeWall] {
-        guard case .quarterDisc(_, .both) = configuration.gussets else { return [] }
-
-        return armPairs.flatMap { first, second in
-            let normal = first.axis.third(with: second.axis)
-            let normalHalf = hubLength(along: normal) / 2
-            let apex = apex(first: first, second: second, normalPosition: 0)
-            let radius = gussetRadius(first: first, second: second)
-
-            return [(first, second), (second, first)].map { along, inward in
-                GussetEdgeWall(
-                    apex: apex,
-                    along: along,
-                    inward: inward,
-                    startDistance: hubLength(along: along.axis) + configuration.socketDepth,
-                    radius: radius,
-                    thickness: dimensions.wallThickness,
-                    normalRange: -normalHalf...normalHalf
-                )
-            }
-        }
-    }
-
     // MARK: - Stock
-
-    /// Free path for the stock along each arm, from the hub face out to where the gussets end.
-    /// Gussets that reach beyond the socket would otherwise block the stock where it leaves
-    /// the socket.
-    public var stockChannels: [any Geometry3D] {
-        let reach = gussetPlacements.map(\.radius).max() ?? 0
-        return configuration.arms.map { arm in
-            let start = arm.direction.sign * hubLength(along: arm.direction.axis) / 2
-            return BoundingBox3D { axis in
-                axis == arm.direction.axis
-                    ? arm.direction.span(from: start, length: reach)
-                    : -dimensions.innerWidth / 2...dimensions.innerWidth / 2
-            }.solid
-        }
-    }
 
     /// The inserted stock, as a reference for display and fit tests. Each piece butts against
     /// the hub (or runs through it along the pass-through axis) and sticks out `length`.
@@ -242,7 +202,7 @@ private extension ConnectorLayout {
         let second: DirectionalAxis<D3>
         let apex: Vector3D
         let radius: Double
-        let isCentered: Bool
+        let reach: Double
     }
 
     /// Every pair of perpendicular arms.
@@ -255,67 +215,36 @@ private extension ConnectorLayout {
         }
     }
 
-    func gussetRadius(first: DirectionalAxis<D3>, second: DirectionalAxis<D3>) -> Double {
-        guard case .quarterDisc(let overhang, _) = configuration.gussets else { return 0 }
-        let reach = max(hubLength(along: first.axis), hubLength(along: second.axis)) + configuration.socketDepth
-        return reach + overhang
-    }
-
-    /// Corner of the hub opposite to both arms, where the quarter disc is centered.
-    func apex(first: DirectionalAxis<D3>, second: DirectionalAxis<D3>, normalPosition: Double) -> Vector3D {
-        Vector3D { axis in
-            switch axis {
-            case first.axis: -first.sign * hubLength(along: axis) / 2
-            case second.axis: -second.sign * hubLength(along: axis) / 2
-            default: normalPosition
-            }
-        }
-    }
-
+    /// Rule: one gusset per pair of perpendicular arms, flush with the hub face along the third
+    /// axis that has no arm (the − face if neither has one). A pair whose third axis has arms in
+    /// both directions gets none, because a gusset in the middle would split the space between
+    /// the arms. Each gusset ends at the socket ends; the overhang only makes its arc bulge.
     var gussetPlacements: [GussetPlacement] {
-        guard case .quarterDisc(_, let sides) = configuration.gussets else { return [] }
+        guard case .quarterDisc(let overhang) = configuration.gussets else { return [] }
         let directions = configuration.arms.map(\.direction)
         let thickness = dimensions.wallThickness
 
-        return armPairs.flatMap { first, second in
+        return armPairs.compactMap { first, second in
             let normal = first.axis.third(with: second.axis)
             let normalHalf = hubLength(along: normal) / 2
             let normalDirections = Set(directions.filter { $0.axis == normal }.map(\.axisDirection))
 
-            // Where each gusset starts along the normal axis
-            let slabStarts: [Double]
-            var isCentered = false
-            switch sides {
-            case .both:
-                slabStarts = [-normalHalf, normalHalf - thickness]
-            case .automatic:
-                switch (normalDirections.contains(.positive), normalDirections.contains(.negative)) {
-                case (true, true):
-                    slabStarts = [-thickness / 2]
-                    isCentered = true
-                case (false, true):
-                    slabStarts = [normalHalf - thickness]
-                default:
-                    slabStarts = [-normalHalf]
+            let slabStart: Double
+            switch (normalDirections.contains(.positive), normalDirections.contains(.negative)) {
+            case (true, true): return nil
+            case (false, true): slabStart = normalHalf - thickness
+            default: slabStart = -normalHalf
+            }
+
+            let apex = Vector3D { axis in
+                switch axis {
+                case first.axis: -first.sign * hubLength(along: axis) / 2
+                case second.axis: -second.sign * hubLength(along: axis) / 2
+                default: slabStart
                 }
             }
-
-            let radius = gussetRadius(first: first, second: second)
-            return slabStarts.map { start in
-                GussetPlacement(
-                    first: first,
-                    second: second,
-                    apex: apex(first: first, second: second, normalPosition: start),
-                    radius: radius,
-                    isCentered: isCentered
-                )
-            }
-        }
-    }
-
-    func hasCenteredGusset(between arm: DirectionalAxis<D3>, and side: DirectionalAxis<D3>) -> Bool {
-        gussetPlacements.contains { placement in
-            placement.isCentered && Set([placement.first, placement.second]) == Set([arm, side])
+            let reach = max(hubLength(along: first.axis), hubLength(along: second.axis)) + configuration.socketDepth
+            return GussetPlacement(first: first, second: second, apex: apex, radius: reach + overhang, reach: reach)
         }
     }
 }

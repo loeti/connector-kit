@@ -5,7 +5,7 @@ import Cadova
 /// The reference design: 22 mm stock in 27 mm sockets, 25 mm deep, M3 screws, 8 mm gusset overhang.
 func referenceConfiguration(
     _ directions: [DirectionalAxis<D3>],
-    gussets: GussetStyle = .quarterDisc(overhang: 8, sides: .automatic),
+    gussets: GussetStyle = .quarterDisc(overhang: 8),
     screwsPerArm: Int = 1,
     passThroughAxis: Axis3D? = nil
 ) -> ConnectorConfiguration {
@@ -37,8 +37,6 @@ let teeJoiningThreeStocks = referenceConfiguration([.minX, .maxX, .maxY])
 /// A stock running through along X, with a perpendicular stock towards −Y.
 let teeJoiningPerpendicularStock = referenceConfiguration([.minX, .maxX, .minY], gussets: .none, passThroughAxis: .x)
 let cornerWithTwoStocks = referenceConfiguration([.maxX, .maxY])
-/// Closed by gussets on both faces and walls along their edges.
-let boxedCornerWithTwoStocks = referenceConfiguration([.maxX, .maxY], gussets: .quarterDisc(overhang: 8, sides: .both))
 let cornerWithThreeStocks = referenceConfiguration([.maxX, .maxY, .maxZ])
 
 /// A target construction with the bounding box its spec requires.
@@ -53,16 +51,16 @@ struct TargetConstruction: Sendable, CustomTestStringConvertible {
 let targetConstructions = [
     TargetConstruction(name: "Reducing sleeve", configuration: reducingSleeve, size: [22, 22, 22]),
     TargetConstruction(name: "Extension of two stocks", configuration: extensionOfTwoStocks, size: [27, 51, 27]),
-    TargetConstruction(name: "Tee joining three stocks", configuration: teeJoiningThreeStocks, size: [93, 60, 27]),
+    TargetConstruction(name: "Tee joining three stocks", configuration: teeJoiningThreeStocks, size: [77, 52, 27]),
     TargetConstruction(name: "Tee joining a stock to a perpendicular stock", configuration: teeJoiningPerpendicularStock, size: [77, 52, 27]),
-    TargetConstruction(name: "Corner with two stocks", configuration: cornerWithTwoStocks, size: [60, 60, 27]),
-    TargetConstruction(name: "Boxed corner with two stocks", configuration: boxedCornerWithTwoStocks, size: [60, 60, 27]),
-    TargetConstruction(name: "Corner with three stocks", configuration: cornerWithThreeStocks, size: [60, 60, 60]),
+    TargetConstruction(name: "Corner with two stocks", configuration: cornerWithTwoStocks, size: [52, 52, 27]),
+    TargetConstruction(name: "Corner with three stocks", configuration: cornerWithThreeStocks, size: [52, 52, 52]),
 ]
 
 // MARK: - Other configurations
 
 let sixWayCross = referenceConfiguration([.minX, .maxX, .minY, .maxY, .minZ, .maxZ])
+let fiveWay = referenceConfiguration([.minX, .maxX, .minY, .maxY, .maxZ])
 
 /// Volume removed by one M3 countersunk hole through a 2.4 mm wall with 0.2 mm tolerance.
 let screwHoleVolume = Double.pi / 12 * 1.5 * (6.2 * 6.2 + 6.2 * 3.2 + 3.2 * 3.2) + Double.pi / 4 * 3.2 * 3.2 * 0.9

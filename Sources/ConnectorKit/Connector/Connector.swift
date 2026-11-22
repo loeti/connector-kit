@@ -23,9 +23,6 @@ public struct Connector: Geometry3D {
             for gusset in layout.gussets {
                 gusset
             }
-            for wall in layout.gussetEdgeWalls {
-                wall
-            }
         }
         .subtracting {
             // Cavities, openings and screw holes come after the union, so nothing protrudes into them
@@ -37,9 +34,6 @@ public struct Connector: Geometry3D {
             }
             if let hubSocket = layout.passThroughHubSocket {
                 hubSocket.negativeBody
-            }
-            for channel in layout.stockChannels {
-                channel
             }
         }
     }

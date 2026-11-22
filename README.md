@@ -4,7 +4,7 @@ Parametric, 3D-printable connectors for square stock, such as wooden battens, bu
 [Cadova](https://github.com/tomasf/Cadova). Every dimension follows from a few reusable sizing
 rules, so the same code makes a corner for 22 mm battens or a tee for 30 mm tubes.
 
-![A three-way corner, a straight coupler, a pass-through tee and a boxed elbow](Images/connectors.png)
+![A three-way corner, an extension, a tee joining a stock to a perpendicular stock, and a tee joining three stocks](Images/connectors.png)
 
 **[Open the customizer](https://loeti.github.io/connector-kit/)** to set the parameters, preview
 the connector in 3D and download a 3MF file for your slicer. It runs entirely in your browser.
@@ -19,11 +19,10 @@ and choosing whether the stock passes through, gives the
 |---|---|---|---|
 | Reducing sleeve (adapter) | none | pass-through X, stock 13, outer size 22 | 22 × 22 × 22 |
 | Extension of two stocks | −Y, +Y | 2 screws per arm | 27 × 51 × 27 |
-| Tee joining three stocks | −X, +X, +Y | | 93 × 60 × 27 |
+| Tee joining three stocks | −X, +X, +Y | | 77 × 52 × 27 |
 | Tee joining a stock to a perpendicular stock | −X, +X, −Y | pass-through X, no gussets | 77 × 52 × 27 |
-| Corner with two stocks | +X, +Y | | 60 × 60 × 27 |
-| Boxed corner with two stocks | +X, +Y | gusset sides: both | 60 × 60 × 27 |
-| Corner with three stocks | +X, +Y, +Z | | 60 × 60 × 60 |
+| Corner with two stocks | +X, +Y | | 52 × 52 × 27 |
+| Corner with three stocks | +X, +Y, +Z | | 52 × 52 × 52 |
 
 Sizes are for 22 mm stock with the default parameters. Roof constructions follow later.
 
@@ -59,8 +58,7 @@ values for the current parameters, and the rules are specified in
 | Arm towards ±X/±Y/±Z | +X, +Y, +Z | Which arms the connector has |
 | Pass-through | None | Axis along which the stock runs straight through |
 | Gussets | On | Quarter-disc plates between perpendicular arms |
-| Gusset overhang | 8 mm | How far the gussets reach beyond the socket ends |
-| Gusset sides | Automatic | One gusset per pair of arms, or both faces joined by edge walls |
+| Gusset overhang | 8 mm | How far the gusset's arc bulges into the corner between the arms; gussets end at the socket ends |
 | Screws | M3 | Countersunk screw (M2–M6) or none |
 | Screws per arm | 1 | One or two screws per socket |
 | Show stock | Off | Shows the inserted stock as reference; it isn't printed |
@@ -79,7 +77,7 @@ The rules are specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) 
 | [socket-sizing](openspec/specs/socket-sizing/spec.md) | Stock, clearance, wall thickness and its minimum |
 | [screws](openspec/specs/screws/spec.md) | Hole sizes, countersinks, which faces get screws, screws in the hub |
 | [connector-layout](openspec/specs/connector-layout/spec.md) | Arms, hub, stop lip, pass-through |
-| [gussets](openspec/specs/gussets/spec.md) | Quarter-disc gussets, their placement, edge walls |
+| [gussets](openspec/specs/gussets/spec.md) | Quarter-disc gussets between the arms and where they sit |
 | [customizer](openspec/specs/customizer/spec.md) | The parametric model, its parameters and publishing |
 | [target-constructions](openspec/specs/target-constructions/spec.md) | The constructions the kit must produce |
 | [cut-lengths](openspec/specs/cut-lengths/spec.md) | Where the stock ends and how to work out cut lengths |
@@ -105,7 +103,7 @@ let corner = ConnectorConfiguration(
     socketDepth: 25,
     arms: [Arm(.maxX), Arm(.maxY), Arm(.maxZ)],
     screw: .countersunk(.m3),
-    gussets: .quarterDisc(overhang: 8, sides: .automatic)
+    gussets: .quarterDisc(overhang: 8)
 )
 
 await Model("Corner") {
@@ -114,7 +112,7 @@ await Model("Corner") {
 }
 ```
 
-The building blocks (`Hub`, `Socket`, `ScrewHole`, `Gusset`, `GussetEdgeWall`) are public as
+The building blocks (`Hub`, `Socket`, `ScrewHole`, `Gusset`) are public as
 well, for parts that aren't connectors.
 
 ## Building

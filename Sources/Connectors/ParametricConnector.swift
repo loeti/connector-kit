@@ -81,13 +81,10 @@ struct ConnectorParameters: Sendable {
 
         guard hasGussets else { return .none }
 
-        @Parameter("Gusset overhang", in: 0...50, step: 1, unit: "mm", description: "How far the gussets reach beyond the end of the sockets")
+        @Parameter("Gusset overhang", in: 0...50, step: 1, unit: "mm", description: "How far the gusset's arc bulges into the corner between the arms. Gussets always end at the socket ends.")
         var overhang = 8.0
 
-        @Parameter("Gusset sides", description: "One gusset per pair of arms, or gussets on both faces joined by walls along their edges")
-        var sides = GussetSidesChoice.automatic
-
-        return .quarterDisc(overhang: overhang, sides: sides.value)
+        return .quarterDisc(overhang: overhang)
     }
 
     static var screwSize: ScrewSize {
@@ -136,18 +133,6 @@ enum PassThrough: String, ParameterChoice {
         case .x: .x
         case .y: .y
         case .z: .z
-        }
-    }
-}
-
-enum GussetSidesChoice: String, ParameterChoice {
-    case automatic
-    case both
-
-    var value: GussetSides {
-        switch self {
-        case .automatic: .automatic
-        case .both: .both
         }
     }
 }

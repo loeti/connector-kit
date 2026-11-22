@@ -55,15 +55,23 @@ struct RuleTests {
         #expect(layout.automaticScrewSide(for: Arm(.maxZ)) == .maxY)
     }
 
-    @Test func `Screws avoid faces split by a centered gusset`() {
-        // With arms on all six sides, every gusset is centered, so each face that has a
-        // perpendicular arm next to it is blocked. A plus-shaped flat cross leaves the top free.
-        let cross = referenceConfiguration([.minX, .maxX, .minY, .maxY])
-        let layout = ConnectorLayout(configuration: cross, clearance: 0.2)
-        #expect(layout.automaticScrewSide(for: Arm(.maxX)) == .maxZ)
+    @Test func `No gusset where the third axis has arms in both directions`() {
+        // ±X, ±Y and +Z: only the four pairs in the XY plane, flush with the bottom
+        let five = ConnectorLayout(configuration: fiveWay, clearance: 0.2).gussets
+        #expect(five.count == 4)
+        #expect(five.allSatisfy { $0.normal == .z && $0.apex.z == -13.5 })
+        #expect(ConnectorLayout(configuration: sixWayCross, clearance: 0.2).gussets.isEmpty)
+    }
 
-        let sixWay = ConnectorLayout(configuration: sixWayCross, clearance: 0.2)
-        #expect(sixWay.automaticScrewSide(for: Arm(.maxX)) == nil)
+    @Test func `Gussets end at the socket ends`() {
+        let gussets = ConnectorLayout(configuration: cornerWithThreeStocks, clearance: 0.2).gussets
+        #expect(gussets.count == 3)
+        #expect(gussets.allSatisfy { $0.reach == 52 && $0.radius == 60 })
+    }
+
+    @Test func `Every face along the arm can take a screw`() {
+        let layout = ConnectorLayout(configuration: sixWayCross, clearance: 0.2)
+        #expect(layout.automaticScrewSide(for: Arm(.maxX)) == .maxZ)
     }
 
     @Test func `Two screws per arm go on opposite faces, a third and two thirds along`() {

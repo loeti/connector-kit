@@ -59,7 +59,6 @@ struct TargetConstructionTests {
             (teeJoiningThreeStocks, [.minX, .maxX, .maxY]),
             (teeJoiningPerpendicularStock, [.minX, .maxX, .minY]),
             (cornerWithTwoStocks, [.maxX, .maxY]),
-            (boxedCornerWithTwoStocks, [.maxX, .maxY]),
         ]
         for (configuration, directions) in flat {
             for direction in directions {

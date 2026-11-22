@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import Cadova
 @testable import ConnectorKit
@@ -10,10 +11,10 @@ struct ConnectorGeometryTests {
             await evaluator.bounds(of: Connector(cornerWithThreeStocks))
         }
         let size = try #require(bounds?.size)
-        // Hub 27 + socket 25 + gusset overhang 8 = 60
-        #expect(abs(size.x - 60) < 0.01)
-        #expect(abs(size.y - 60) < 0.01)
-        #expect(abs(size.z - 60) < 0.01)
+        // Hub 27 + socket 25 = 52; gussets end at the socket ends
+        #expect(abs(size.x - 52) < 0.01)
+        #expect(abs(size.y - 52) < 0.01)
+        #expect(abs(size.z - 52) < 0.01)
     }
 
     @Test func `Three-way corner has the expected volume and is a single piece`() async throws {
@@ -24,9 +25,9 @@ struct ConnectorGeometryTests {
         // Calculated by hand:
         let hub = 27.0 * 27 * 27                                    // 19683
         let sockets = 3 * (27.0 * 27 - 22.2 * 22.2) * 25            // 17712
-        let gusset = (Double.pi * 60 * 60 / 4 - (52 * 27 + 27 * 25)) * 2.4
-        let gussetOverlaps = 3 * (2.4 * 2.4 * 8)                    // Gussets meet along the edges beyond the sockets
-        let expected = hub + sockets + 3 * gusset - gussetOverlaps - 3 * screwHoleVolume
+        // A gusset is the 52 × 52 square within the radius 60 disc, minus the hub and sockets
+        let gusset = (squareWithinDisc(side: 52, radius: 60) - (52 * 27 + 27 * 25)) * 2.4
+        let expected = hub + sockets + 3 * gusset - 3 * screwHoleVolume
         #expect(abs(volume - expected) / expected < 0.005, "Volume \(volume), expected \(expected)")
         #expect(componentCount == 1)
     }
@@ -42,7 +43,7 @@ struct ConnectorGeometryTests {
         #expect(abs(removed - 3 * screwHoleVolume) < 5, "Removed \(removed), expected \(3 * screwHoleVolume)")
     }
 
-    @Test(arguments: [cornerWithThreeStocks, cornerWithTwoStocks, teeJoiningThreeStocks, sixWayCross, extensionOfTwoStocks, teeJoiningPerpendicularStock, boxedCornerWithTwoStocks])
+    @Test(arguments: [cornerWithThreeStocks, cornerWithTwoStocks, teeJoiningThreeStocks, sixWayCross, fiveWay, extensionOfTwoStocks, teeJoiningPerpendicularStock])
     func `Stock fits without overlapping`(_ configuration: ConnectorConfiguration) async throws {
         // Stock touching the hub or a stop lip gives a degenerate, zero-volume intersection,
         // so this compares volume rather than asking whether the intersection is empty.
@@ -96,15 +97,6 @@ struct ConnectorGeometryTests {
         #expect(abs(volume - expected) / expected < 0.005, "Volume \(volume), expected \(expected)")
     }
 
-    @Test func `Boxed elbow has gussets on both faces joined by edge walls`() async throws {
-        let (size, volume) = try await sizeAndVolume(of: boxedCornerWithTwoStocks)
-        #expect(abs(size.x - 60) < 0.01 && abs(size.y - 60) < 0.01 && abs(size.z - 27) < 0.01)
-        let gusset = (Double.pi * 60 * 60 / 4 - (27 * 27 + 2 * 25 * 27)) * 2.4
-        // 8 mm long walls between the gussets, beyond the socket ends
-        let edgeWall = 2.4 * 8 * (27 - 2 * 2.4)
-        let expected = 27.0 * 27 * 27 + 2 * socketWallArea * 25 + 2 * gusset + 2 * edgeWall - 2 * screwHoleVolume
-        #expect(abs(volume - expected) / expected < 0.005, "Volume \(volume), expected \(expected)")
-    }
 
     @Test func `Reducing sleeve without arms holds the stock with a screw in the hub`() async throws {
         var withoutScrews = reducingSleeve
@@ -123,4 +115,12 @@ struct ConnectorGeometryTests {
         let hole = Double.pi / 12 * 1.5 * (6.2 * 6.2 + 6.2 * 3.2 + 3.2 * 3.2) + Double.pi / 4 * 3.2 * 3.2 * 2.9
         #expect(abs(full - drilled - hole) < 3, "Removed \(full - drilled), expected \(hole)")
     }
+}
+
+/// Area of a square with one corner at the center of a disc, within that disc.
+func squareWithinDisc(side a: Double, radius r: Double) -> Double {
+    guard a * a * 2 > r * r else { return a * a }
+    let x0 = (r * r - a * a).squareRoot()
+    let integral = { (x: Double) in (x * (r * r - x * x).squareRoot() + r * r * asin(x / r)) / 2 }
+    return a * x0 + integral(a) - integral(x0)
 }

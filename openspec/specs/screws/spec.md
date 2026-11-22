@@ -36,20 +36,6 @@ other sockets or gussets.
 - **WHEN** a screw hole lies on a socket face next to a gusset
 - **THEN** the gusset is not cut by the head clearance
 
-### Requirement: Face for a screw
-Unless an arm specifies its screws, screws SHALL go on the first free face in the order top
-(+Z), back (+Y), right (+X), front (−Y), left (−X), bottom (−Z), skipping faces along the arm's
-own axis. A face is not free if a centered gusset splits it, because the gusset would block the
-hole; a gusset flush with a hub face only touches the edge of a socket face and leaves it free.
-
-#### Scenario: Three-way corner
-- **WHEN** a connector has arms +X, +Y and +Z with automatic gussets
-- **THEN** the screws of the +X and +Y arms go on top, and the screw of the +Z arm goes on +Y
-
-#### Scenario: All faces blocked
-- **WHEN** a connector has arms in all six directions with automatic gussets
-- **THEN** the +X arm has no free face and gets no screw
-
 ### Requirement: Several screws per arm
 With more than one screw per arm, screws SHALL alternate between the preferred face and the face
 opposite it (if that one is free too) and be spread evenly along the socket (at 1/(n+1), 2/(n+1),
@@ -76,3 +62,17 @@ arm's screws hold the stock and the hub gets none.
 #### Scenario: Arm on the pass-through axis
 - **WHEN** the stock passes through along X and there is an arm on +X
 - **THEN** the hub gets no screws
+
+### Requirement: Preferred face for a screw
+Unless an arm specifies its screws, screws SHALL go on the first face in the order top (+Z), back
+(+Y), right (+X), front (−Y), left (−X), bottom (−Z), skipping faces along the arm's own axis,
+because the top is easiest to reach. Gussets don't block a face: they sit flush with a hub face and
+only touch the edge of a socket face.
+
+#### Scenario: Three-way corner
+- **WHEN** a connector has arms +X, +Y and +Z with gussets
+- **THEN** the screws of the +X and +Y arms go on top, and the screw of the +Z arm goes on +Y
+
+#### Scenario: Arms in all six directions
+- **WHEN** a connector has arms in all six directions
+- **THEN** the +X arm's screw goes on top
